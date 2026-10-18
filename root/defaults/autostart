@@ -1,0 +1,41 @@
+#!/usr/bin/env bash
+
+set -eu
+
+export NO_AT_BRIDGE=1
+
+# Ashigaru keeps wallets, config and Tor state under this directory, on the
+# main volume. It is passed with --dir because Java takes the default home
+# from the passwd entry, not $HOME. Mainnet config lives at its root.
+ashigaru_dir=/config/.ashigaru
+config=$ashigaru_dir/config
+mkdir -p "$ashigaru_dir"
+chmod 700 "$ashigaru_dir"
+
+# Updates arrive as new StartOS package versions; the in-app updater cannot
+# replace the image. Answer its consent prompt "no" for the user, unless they
+# have already answered it themselves.
+if [ ! -s "$config" ]; then
+  echo '{"updateCheckConsent": false}' > "$config"
+elif [ "$(jq -r '.updateCheckConsent // "unset"' "$config" 2>/dev/null)" = unset ]; then
+  tmp=$(mktemp "$config.XXXXXX")
+  if jq '.updateCheckConsent = false' "$config" > "$tmp"; then
+    mv "$tmp" "$config"
+  else
+    rm -f "$tmp"
+  fi
+fi
+chmod 600 "$config"
+
+# Kill any leftover Ashigaru processes before launching it in this D-Bus session.
+pkill -f '/opt/Ashigaru' 2>/dev/null || true
+sleep 1
+
+# Relaunch Ashigaru whenever it exits, so quitting it never leaves the user
+# looking at an empty desktop.
+(
+  while true; do
+    /opt/Ashigaru/bin/Ashigaru --dir "$ashigaru_dir" || true
+    sleep 2
+  done
+) &
