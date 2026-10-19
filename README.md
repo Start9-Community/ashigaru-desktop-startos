@@ -16,6 +16,14 @@
 
 ---
 
+## Building
+
+- **Locally:** `npm ci && make` with Docker and `start-cli` installed. Produces `ashigaru-desktop_x86_64.s9pk`.
+- **CI:** the **Build** workflow runs on pull requests into `main` and on demand from the Actions tab. It uploads the `.s9pk` as a workflow artifact, kept for 14 days, and is signed with a throwaway key.
+- **Releases:** pushing a tag `v<version>` (e.g. `v1.4.5_0` for `1.4.5:0`) runs the **Release** workflow. It builds the package signed with the `DEV_KEY` secret and attaches the `.s9pk` and its SHA256 to a GitHub Release.
+
+Both workflows are Start9's standard thin callers of the reusable workflows in `Start9Labs/start-technologies`. No Start9 registry or S3 is configured, so publishing stops at the GitHub Release.
+
 ## Image and Container Runtime
 
 One image, built here in three stages:

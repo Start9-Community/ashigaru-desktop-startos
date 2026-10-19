@@ -23,6 +23,8 @@ This package wraps the Ashigaru Desktop Linux release from `linkinparkrulz/ashig
 
   The build re-checks the hash against `MESSAGE.txt` and the tarball against `SHA256SUMS`, so a skipped step fails the build rather than shipping an unverified binary.
 
+  6. Once merged into `main`, tag the merge commit `v<version>` with `:` replaced by `_` (e.g. `v1.4.6_0`) and push the tag. The Release workflow builds the `.s9pk` and attaches it to a GitHub Release.
+
 - **Selkies base image**: `Dockerfile` pins `ghcr.io/linuxserver/baseimage-selkies:debiantrixie` by release tag and digest, the same pin Start9's Bisq package uses. Verify the current tag with:
 
   ```
