@@ -1,5 +1,18 @@
 name: Build
 
+# TEMPORARY: a copy of the build job in
+# Start9Labs/start-technologies/.github/workflows/build.yml, pinned to
+# ubuntu-24.04. Upstream runs on ubuntu-latest, now Ubuntu 26.04, where its
+# setup-build-env action fails installing qemu-user-static (only a virtual
+# package there). Once upstream builds again, restore the standard thin caller:
+#
+#   jobs:
+#     build:
+#       if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
+#       permissions:
+#         contents: read
+#       uses: Start9Labs/start-technologies/.github/workflows/build.yml@master
+
 on:
   workflow_dispatch:
   pull_request:
@@ -16,7 +29,42 @@ concurrency:
 jobs:
   build:
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
+    runs-on: ubuntu-24.04
     permissions:
       contents: read
-    uses: Start9Labs/start-technologies/.github/workflows/build.yml@master
-    # No DEV_KEY — a PR build doesn't publish, so it doesn't need the signing key.
+    steps:
+      - name: Setup build environment
+        uses: Start9Labs/start-technologies/.github/actions/setup-build-env@master
+
+      - name: Checkout services repository
+        uses: actions/checkout@v6
+        with:
+          submodules: recursive
+
+      # A PR build doesn't publish, so it signs with a throwaway key.
+      - name: Create identity signing key
+        run: start-cli init-key
+        shell: bash
+
+      # `s9pk pack` requires a packaging workspace holding a build key.
+      - name: Provision workspace build key
+        run: |
+          mkdir -p .startos
+          cp ~/.startos/id.key.pem .startos/build.key.pem
+        shell: bash
+
+      - name: Install package dependencies
+        run: npm ci
+        shell: bash
+
+      - name: Build (make x86)
+        uses: Start9Labs/start-technologies/.github/actions/build-s9pk@master
+        with:
+          target: x86
+
+      - name: Upload each s9pk as its own artifact
+        uses: Start9Labs/start-technologies/.github/actions/upload-each@master
+        with:
+          pattern: '*.s9pk'
+          retention-days: 14
+          compression-level: 0
