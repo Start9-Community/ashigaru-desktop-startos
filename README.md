@@ -16,13 +16,22 @@
 
 ---
 
-## Building
+## Table of Contents
 
-- **Locally:** `npm ci && make` with Docker and `start-cli` installed. Produces `ashigaru-desktop_x86_64.s9pk`.
-- **CI:** the **Build** workflow runs on pull requests into `main` and on demand from the Actions tab. It uploads the `.s9pk` as a workflow artifact, kept for 14 days, and is signed with a throwaway key.
-- **Releases:** pushing a tag `v<version>` (e.g. `v1.5.0_0` for `1.5.0:0`) runs the **Release** workflow. It builds the package signed with the `DEV_KEY` secret and attaches the `.s9pk` and its SHA256 to a GitHub Release.
+- [Image and Container Runtime](#image-and-container-runtime)
+- [Volume and Data Layout](#volume-and-data-layout)
+- [File Models](#file-models)
+- [Dependencies](#dependencies)
+- [Network Access and Interfaces](#network-access-and-interfaces)
+- [Installation and First-Run Flow](#installation-and-first-run-flow)
+- [Actions](#actions)
+- [Tasks](#tasks)
+- [Health Checks](#health-checks)
+- [Backups and Restore](#backups-and-restore)
+- [Limitations and Differences](#limitations-and-differences)
+- [Quick Reference for AI Consumers](#quick-reference-for-ai-consumers)
 
-Both workflows are Start9's standard thin callers of the reusable workflows in `Start9Labs/start-technologies`. No Start9 registry or S3 is configured, so publishing stops at the GitHub Release.
+---
 
 ## Image and Container Runtime
 
@@ -38,7 +47,7 @@ One image, built here in three stages:
 | Architectures | x86_64 only                                                       |
 | Entrypoint    | The base image's `/init`, via `sdk.useEntrypoint()` + `runAsInit` |
 | Memory        | Ashigaru's JVM heap is capped at 1 GiB by the upstream launcher   |
-| StartOS       | 0.4.0.2 or later (`osVersion` set by start-sdk 3.x)               |
+| StartOS       | At least the manifest's `osVersion`, which start-sdk sets         |
 
 | Subcontainer   | Purpose                          |
 | -------------- | -------------------------------- |
@@ -48,7 +57,7 @@ The stack is `browser → Selkies (port 3000) → Openbox → Ashigaru`. `root/d
 
 ### Window sizing
 
-Selkies resizes the X display to the browser. Ashigaru's main window is resizable from 1.5.0, but Openbox maximising does not stick to it: while a modal dialog is open, JavaFX pins the main window's size hints to its unmaximised size, so the first-run tour blocks the maximise and every later dialog undoes it. Instead, the autostart hook checks every two seconds and resizes the main window to the screen minus its frame, skipping while a dialog pins it. It finds the main window by its `Ashigaru Desktop <version>` title and a minimum-size hint above 1×1, because the splash screen shares the title but sets no minimum size. Dialogs keep their own size.
+Selkies resizes the X display to the browser. Ashigaru's main window is resizable, but Openbox maximising does not stick to it: while a modal dialog is open, JavaFX pins the main window's size hints to its unmaximised size, so the first-run tour blocks the maximise and every later dialog undoes it. Instead, the autostart hook checks every two seconds and resizes the main window to the screen minus its frame, skipping while a dialog pins it. It finds the main window by its `Ashigaru Desktop <version>` title and a minimum-size hint above 1×1, because the splash screen shares the title but sets no minimum size. Dialogs keep their own size.
 
 ### Fonts
 
@@ -68,9 +77,11 @@ Selkies streams H.264 by default at CRF 25 with 4:2:0 chroma, which blurs Ashiga
 
 **The desktop is locked down.** Passwordless sudo, terminals, the remote command channel, external open helpers and the applications sidebar are disabled through the base image's environment. File upload and download stay on for wallet exports and BIP-329 labels.
 
-**Older StartOS fails at install, not with a version error.** start-sdk 3.x sends an HTTP binding's `addSsl.alpn` as a plain list (`['http/1.1']`). StartOS accepts that only from 0.4.0.2; 0.4.0 and 0.4.0.1 expect the older `'reflect'` / `{ specified: [...] }` form. A sideload on those releases doesn't enforce the manifest's `osVersion`, so it fails in `persistent_container::init` with `Invalid params: Deserialization Error: invalid type: sequence, expected string or map@bind`. The fix is to update StartOS.
+**Older StartOS fails at install, not with a version error.** The SDK sends an HTTP binding's `addSsl.alpn` as a plain list (`['http/1.1']`). StartOS releases older than the manifest's `osVersion` expect the earlier `'reflect'` / `{ specified: [...] }` form, and don't enforce `osVersion` on a sideload. On those, install fails in `persistent_container::init` with `Invalid params: Deserialization Error: invalid type: sequence, expected string or map@bind`. The fix is to update StartOS.
 
 ## Volume and Data Layout
+
+Everything the package keeps lives on one volume, mounted as the desktop user's home.
 
 | Volume | Mount Point | Purpose                                        |
 | ------ | ----------- | ---------------------------------------------- |
@@ -100,6 +111,8 @@ None. Ashigaru connects to the Bitcoin network itself, through public Electrum s
 
 ## Network Access and Interfaces
 
+The package exposes one interface, and what it serves is a remote desktop rather than a web application.
+
 | Interface        | Id   | Type | Port | Description                                       |
 | ---------------- | ---- | ---- | ---- | ------------------------------------------------- |
 | Ashigaru Desktop | `ui` | ui   | 3000 | The Ashigaru application, streamed to the browser |
@@ -114,15 +127,20 @@ Install seeds an empty `store.json` and raises a `critical` task to set the desk
 
 ## Actions
 
+One action, for the desktop login. Ashigaru's own settings live in its UI.
+
 ### Set Desktop Password
 
 Generates a new random password for the desktop login and shows it with the username. Available at any status. When a password already exists, it asks for confirmation first.
 
 - **What it changes:** `PASSWORD` in `store.json`.
 - **Cost:** the write re-runs `main`, so the desktop and Ashigaru restart. An active mix is interrupted and resumes when Ashigaru reopens the wallet.
+- **Repeat safety:** safe to run again; each run makes a new password and the old one stops working.
 - **Outputs:** the username (`ashigaru`) and the new password.
 
 ## Tasks
+
+One task, raised so the desktop is never reachable without a password.
 
 | Task                      | Severity   | Raised when | Cleared when              |
 | ------------------------- | ---------- | ----------- | ------------------------- |
@@ -132,11 +150,13 @@ Raised on install only, so a restore does not re-prompt for a password that came
 
 ## Health Checks
 
+One check, on the desktop stream.
+
 | Check     | Displayed as       | Method                 |
 | --------- | ------------------ | ---------------------- |
 | `primary` | "Ashigaru Desktop" | Port 3000 is listening |
 
-The check reports whether Selkies is serving, not whether Ashigaru has finished starting or is connected. A green check with a briefly empty desktop is normal while the JVM starts.
+The check reports whether Selkies is serving, not whether Ashigaru has finished starting or is connected. A green check with a briefly empty desktop is normal while the JVM starts. A failing check means Selkies is not listening: the desktop stack failed to start, so the service log is the place to look.
 
 ## Backups and Restore
 
@@ -183,8 +203,7 @@ startos_managed_env_vars:
   - SELKIES_FILE_TRANSFERS
   - SELKIES_VIDEO_FULLCOLOR
   - SELKIES_VIDEO_CRF
-min_startos: 0.4.0.2
-dependencies: []
+dependencies: none
 interfaces:
   ui: { type: ui, port: 3000 }
 actions:

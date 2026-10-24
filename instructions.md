@@ -13,7 +13,7 @@
 
 ## Getting set up
 
-This service needs **StartOS 0.4.0.2 or later**. On an older StartOS the install fails with a "Deserialization Error … @bind"; update StartOS first, then install again.
+This service needs an up-to-date StartOS. If the install fails with a "Deserialization Error … @bind", update StartOS first, then install again.
 
 1. After install, StartOS posts a critical task **Set your desktop password**. Run it and save the generated `ashigaru` username and password in a password manager.
 2. Start the service and open the **Ashigaru Desktop** interface. Sign in with the username and password from step 1 when your browser asks.
