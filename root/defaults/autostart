@@ -1,4 +1,6 @@
-#!/usr/bin/env bash
+#!/bin/sh
+# openbox-autostart runs this with sh (dash on Debian), whatever this line
+# says, so it has to stay POSIX: no <<<, [[ ]], arrays or $'...'.
 
 set -eu
 
@@ -42,18 +44,32 @@ xcompmgr -n >/dev/null 2>&1 &
 # resize to the screen survives both, so check every two seconds and resize
 # when the window is off, unless a dialog currently pins it.
 fit_main_window() {
-  local wid screen sw sh ext l r t b want_w want_h geom max_w
   while true; do
     sleep 2
-    wid=$(wmctrl -l 2>/dev/null | awk '/ Ashigaru Desktop [0-9]/ {print $1; exit}')
+    # The splash shares the main window's title. Only the main window sets a
+    # minimum size (720x520, or its pinned size while a dialog is open); the
+    # splash leaves the 1x1 default.
+    wid=
+    for w in $(wmctrl -l 2>/dev/null | awk '/ Ashigaru Desktop [0-9]/ {print $1}'); do
+      min_w=$(xprop -id "$w" WM_NORMAL_HINTS 2>/dev/null | sed -n 's/.*minimum size: \([0-9]*\) by.*/\1/p')
+      if [ "${min_w:-0}" -gt 1 ]; then
+        wid=$w
+        break
+      fi
+    done
     [ -n "$wid" ] || continue
     screen=$(xdpyinfo 2>/dev/null | awk '/dimensions:/ {print $2; exit}')
     sw=${screen%x*} sh=${screen#*x}
-    [ -n "$sw" ] && [ -n "$sh" ] || continue
+    if [ -z "$sw" ] || [ -z "$sh" ]; then continue; fi
     ext=$(xprop -id "$wid" _NET_FRAME_EXTENTS 2>/dev/null | sed -n 's/.*= //p' | tr -d ' ')
-    IFS=, read -r l r t b <<< "${ext:-0,0,0,0}"
-    want_w=$((sw - ${l:-0} - ${r:-0}))
-    want_h=$((sh - ${t:-0} - ${b:-0}))
+    old_ifs=$IFS
+    IFS=,
+    # shellcheck disable=SC2086 # split on the commas on purpose
+    set -- ${ext:-0,0,0,0}
+    IFS=$old_ifs
+    l=${1:-0} r=${2:-0} t=${3:-0} b=${4:-0}
+    want_w=$((sw - l - r))
+    want_h=$((sh - t - b))
     geom=$(wmctrl -lG 2>/dev/null | awk -v id="$wid" '$1 == id {print $5, $6; exit}')
     [ "$geom" = "$want_w $want_h" ] && continue
     max_w=$(xprop -id "$wid" WM_NORMAL_HINTS 2>/dev/null | sed -n 's/.*maximum size: \([0-9]*\) by.*/\1/p')
@@ -61,6 +77,7 @@ fit_main_window() {
     wmctrl -i -r "$wid" -e "0,0,0,$want_w,$want_h" 2>/dev/null || true
   done
 }
+# Runs in its own subshell, so its variables never touch the rest of this hook.
 fit_main_window &
 
 # Relaunch Ashigaru whenever it exits, so quitting it never leaves the user

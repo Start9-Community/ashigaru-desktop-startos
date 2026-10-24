@@ -43,11 +43,11 @@ One image, built here in three stages:
 | -------------- | -------------------------------- |
 | `ashigaru-sub` | The desktop daemon — attach here |
 
-The stack is `browser → Selkies (port 3000) → Openbox → Ashigaru`. `root/defaults/startwm.sh` copies the package-owned autostart hook over the persisted Openbox one on every launch. That hook seeds Ashigaru's config, starts `xcompmgr` and the window-fit loop, and launches Ashigaru in a loop, so quitting the app relaunches it.
+The stack is `browser → Selkies (port 3000) → Openbox → Ashigaru`. `root/defaults/startwm.sh` copies the package-owned autostart hook over the persisted Openbox one on every launch. That hook, run by `openbox-autostart` with `sh` (dash) and so kept POSIX, seeds Ashigaru's config, starts `xcompmgr` and the window-fit loop, and launches Ashigaru in a loop, so quitting the app relaunches it.
 
 ### Window sizing
 
-Selkies resizes the X display to the browser. Ashigaru's main window is resizable from 1.5.0, but Openbox maximising does not stick to it: while a modal dialog is open, JavaFX pins the main window's size hints to its unmaximised size, so the first-run tour blocks the maximise and every later dialog undoes it. Instead, the autostart hook checks every two seconds and resizes the main window (titled `Ashigaru Desktop <version>`) to the screen minus its frame, skipping while a dialog pins it. Dialogs keep their own size.
+Selkies resizes the X display to the browser. Ashigaru's main window is resizable from 1.5.0, but Openbox maximising does not stick to it: while a modal dialog is open, JavaFX pins the main window's size hints to its unmaximised size, so the first-run tour blocks the maximise and every later dialog undoes it. Instead, the autostart hook checks every two seconds and resizes the main window to the screen minus its frame, skipping while a dialog pins it. It finds the main window by its `Ashigaru Desktop <version>` title and a minimum-size hint above 1×1, because the splash screen shares the title but sets no minimum size. Dialogs keep their own size.
 
 ### Fonts
 
