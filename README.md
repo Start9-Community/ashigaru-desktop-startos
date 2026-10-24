@@ -38,6 +38,7 @@ One image, built here in three stages:
 | Architectures | x86_64 only                                                       |
 | Entrypoint    | The base image's `/init`, via `sdk.useEntrypoint()` + `runAsInit` |
 | Memory        | Ashigaru's JVM heap is capped at 1 GiB by the upstream launcher   |
+| StartOS       | 0.4.0.2 or later (`osVersion` set by start-sdk 3.x)               |
 
 | Subcontainer   | Purpose                          |
 | -------------- | -------------------------------- |
@@ -66,6 +67,8 @@ JavaFX opens links (block explorer, exposure check) through GIO, which runs the 
 Selkies streams H.264 by default at CRF 25 with 4:2:0 chroma, which blurs Ashigaru's small coloured text. The package sets `SELKIES_VIDEO_FULLCOLOR=true` (4:4:4) and `SELKIES_VIDEO_CRF=18,5-50` (starts at 18, adjustable from the Selkies sidebar). Paint-over for static screens stays on at its defaults.
 
 **The desktop is locked down.** Passwordless sudo, terminals, the remote command channel, external open helpers and the applications sidebar are disabled through the base image's environment. File upload and download stay on for wallet exports and BIP-329 labels.
+
+**Older StartOS fails at install, not with a version error.** start-sdk 3.x sends an HTTP binding's `addSsl.alpn` as a plain list (`['http/1.1']`). StartOS accepts that only from 0.4.0.2; 0.4.0 and 0.4.0.1 expect the older `'reflect'` / `{ specified: [...] }` form. A sideload on those releases doesn't enforce the manifest's `osVersion`, so it fails in `persistent_container::init` with `Invalid params: Deserialization Error: invalid type: sequence, expected string or map@bind`. The fix is to update StartOS.
 
 ## Volume and Data Layout
 
@@ -180,6 +183,7 @@ startos_managed_env_vars:
   - SELKIES_FILE_TRANSFERS
   - SELKIES_VIDEO_FULLCOLOR
   - SELKIES_VIDEO_CRF
+min_startos: 0.4.0.2
 dependencies: []
 interfaces:
   ui: { type: ui, port: 3000 }

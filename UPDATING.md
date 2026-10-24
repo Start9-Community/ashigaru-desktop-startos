@@ -24,6 +24,8 @@ This package wraps the Ashigaru Desktop Linux release from `linkinparkrulz/ashig
 
   The build re-checks the hash against `MESSAGE.txt` and the AppImage against `SHA256SUMS`, so a skipped step fails the build rather than shipping an unverified binary. The build downloads from the public release URL, so it fails while the upstream release is still a draft.
 
+- **start-sdk**: bumping `@start9labs/start-sdk` can raise the minimum StartOS. After `make`, check `manifest.osVersion` (`node -e "console.log(require('./javascript/index.js').manifest.osVersion)"`), and if it changed, update the minimum in `README.md` and `instructions.md`.
+
 - **Selkies base image**: `Dockerfile` pins `ghcr.io/linuxserver/baseimage-selkies:debiantrixie` by release tag and digest, the same pin Start9's Bisq package uses. Verify the current tag with:
 
   ```
