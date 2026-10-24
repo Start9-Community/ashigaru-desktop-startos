@@ -1,6 +1,6 @@
 # Updating the upstream version
 
-This package wraps the Ashigaru Desktop Linux release from `linkinparkrulz/ashigaru-desktop`. It installs the upstream `Ashigaru-<version>-x86_64.tar.gz` into a LinuxServer Selkies webtop image. The tarball is checked against the release's `SHA256SUMS`, which is pinned by its own hash.
+This package wraps the Ashigaru Desktop Linux release from `linkinparkrulz/ashigaru-desktop`. It installs the upstream `Ashigaru-<version>-x86_64.AppImage` (Linux releases ship only as an AppImage from 1.5.0) into a LinuxServer Selkies webtop image. The AppImage is checked against the release's `SHA256SUMS`, which is pinned by its own hash, then unpacked with `--appimage-extract`.
 
 ## Determining the upstream version
 
@@ -20,10 +20,9 @@ This package wraps the Ashigaru Desktop Linux release from `linkinparkrulz/ashig
   3. Run `sha256sum SHA256SUMS` and confirm it matches the `SHA256(SHA256SUMS):` line in `MESSAGE.txt`.
   4. Set `ARG ASHIGARU_VERSION` and `ARG ASHIGARU_SUMS_SHA256` in `Dockerfile` to the new version and that hash.
   5. Add a `startos/versions/` entry for `<version>:0`.
-
-  The build re-checks the hash against `MESSAGE.txt` and the tarball against `SHA256SUMS`, so a skipped step fails the build rather than shipping an unverified binary.
-
   6. Once merged into `main`, tag the merge commit `v<version>` with `:` replaced by `_` (e.g. `v1.4.6_0`) and push the tag. The Release workflow builds the `.s9pk` and attaches it to a GitHub Release.
+
+  The build re-checks the hash against `MESSAGE.txt` and the AppImage against `SHA256SUMS`, so a skipped step fails the build rather than shipping an unverified binary. The build downloads from the public release URL, so it fails while the upstream release is still a draft.
 
 - **Selkies base image**: `Dockerfile` pins `ghcr.io/linuxserver/baseimage-selkies:debiantrixie` by release tag and digest, the same pin Start9's Bisq package uses. Verify the current tag with:
 

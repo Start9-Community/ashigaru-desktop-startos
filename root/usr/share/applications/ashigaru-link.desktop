@@ -1,0 +1,7 @@
+[Desktop Entry]
+Type=Application
+Name=Open link
+Comment=Copies a link to the clipboard for the viewer's browser
+Exec=/usr/local/bin/ashigaru-open-link %u
+MimeType=x-scheme-handler/http;x-scheme-handler/https;
+NoDisplay=true

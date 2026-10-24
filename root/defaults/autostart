@@ -31,6 +31,38 @@ chmod 600 "$config"
 pkill -f '/opt/Ashigaru' 2>/dev/null || true
 sleep 1
 
+# JavaFX's dropdowns and autocomplete lists are transparent windows with a
+# drop shadow. Without a compositor their transparent margin paints white.
+xcompmgr -n >/dev/null 2>&1 &
+
+# Keep the main window filling the screen, which Selkies sizes to the browser.
+# Openbox maximising does not stick: while a modal dialog is open JavaFX pins
+# the main window's size hints to its unmaximised size, so the first-run tour
+# blocks the maximise at map time and every later dialog undoes it. A plain
+# resize to the screen survives both, so check every two seconds and resize
+# when the window is off, unless a dialog currently pins it.
+fit_main_window() {
+  local wid screen sw sh ext l r t b want_w want_h geom max_w
+  while true; do
+    sleep 2
+    wid=$(wmctrl -l 2>/dev/null | awk '/ Ashigaru Desktop [0-9]/ {print $1; exit}')
+    [ -n "$wid" ] || continue
+    screen=$(xdpyinfo 2>/dev/null | awk '/dimensions:/ {print $2; exit}')
+    sw=${screen%x*} sh=${screen#*x}
+    [ -n "$sw" ] && [ -n "$sh" ] || continue
+    ext=$(xprop -id "$wid" _NET_FRAME_EXTENTS 2>/dev/null | sed -n 's/.*= //p' | tr -d ' ')
+    IFS=, read -r l r t b <<< "${ext:-0,0,0,0}"
+    want_w=$((sw - ${l:-0} - ${r:-0}))
+    want_h=$((sh - ${t:-0} - ${b:-0}))
+    geom=$(wmctrl -lG 2>/dev/null | awk -v id="$wid" '$1 == id {print $5, $6; exit}')
+    [ "$geom" = "$want_w $want_h" ] && continue
+    max_w=$(xprop -id "$wid" WM_NORMAL_HINTS 2>/dev/null | sed -n 's/.*maximum size: \([0-9]*\) by.*/\1/p')
+    [ "${max_w:-0}" -ge "$want_w" ] || continue
+    wmctrl -i -r "$wid" -e "0,0,0,$want_w,$want_h" 2>/dev/null || true
+  done
+}
+fit_main_window &
+
 # Relaunch Ashigaru whenever it exits, so quitting it never leaves the user
 # looking at an empty desktop.
 (

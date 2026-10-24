@@ -1,0 +1,35 @@
+#!/usr/bin/env bash
+# The http(s) handler for Ashigaru's links (block explorer, exposure check).
+# JavaFX opens links through GIO, which runs the default handler registered in
+# /etc/xdg/mimeapps.list - this script, via ashigaru-link.desktop. There is no
+# browser inside the container and Selkies cannot open one in the viewer's,
+# so the link is copied to the clipboard, which Selkies carries over to the
+# browser, and shown in a dialog. Anything other than an http(s) link is
+# refused, so nothing can be launched.
+
+set -u
+
+url=${1:-}
+case "$url" in
+  http://* | https://*) ;;
+  *)
+    echo "ashigaru-open-link: only http(s) links can be passed to your browser" >&2
+    exit 1
+    ;;
+esac
+
+printf '%s' "$url" | xclip -selection clipboard >/dev/null 2>&1 || true
+
+message="This link is copied to your clipboard. Paste it into a new browser tab to open it."
+
+if command -v yad >/dev/null 2>&1; then
+  GTK_THEME=Adwaita:dark yad --title="Open link" --window-icon=dialog-information \
+    --text="$message" --form --field="Link:RO" "$url" \
+    --button="OK:0" --width=560 --borders=16 --center --on-top >/dev/null 2>&1 &
+else
+  xmessage -center "$message
+
+$url" >/dev/null 2>&1 &
+fi
+
+exit 0

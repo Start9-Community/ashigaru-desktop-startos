@@ -44,6 +44,10 @@ export const main = sdk.setupMain(async ({ effects }) => {
         SELKIES_UI_SIDEBAR_SHOW_APPS: 'false',
         SELKIES_UI_SIDEBAR_SHOW_FILES: 'true',
         SELKIES_FILE_TRANSFERS: 'upload,download',
+        // Ashigaru is mostly small coloured text on a dark background. 4:2:0
+        // chroma and the default CRF 25 smear it, so stream 4:4:4 at CRF 18.
+        SELKIES_VIDEO_FULLCOLOR: 'true',
+        SELKIES_VIDEO_CRF: '18,5-50',
       },
     },
     ready: {

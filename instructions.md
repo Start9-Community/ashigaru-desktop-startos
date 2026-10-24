@@ -22,7 +22,11 @@
 
 ### Ashigaru Desktop interface
 
-This is the same Ashigaru you would run on a computer, displayed in your browser. Use a browser window of at least 1100 × 800, since Ashigaru's main window is a fixed size. Leaving the browser tab, or closing it, does not stop Ashigaru: mixing carries on on the server. If you quit Ashigaru from its own menu, it starts again by itself after a couple of seconds.
+This is the same Ashigaru you would run on a computer, displayed in your browser. The window fills your browser tab and follows it when you resize. If text looks too small on a high-resolution screen, pick a larger scaling in the Selkies sidebar on the left. Leaving the browser tab, or closing it, does not stop Ashigaru: mixing carries on on the server. If you quit Ashigaru from its own menu, it starts again by itself after a couple of seconds.
+
+### Links
+
+Ashigaru can't open a website in your browser from the server. When you click a block explorer or exposure link, the link is copied to your clipboard and shown in a small window: paste it into a new browser tab. If your browser asks whether the page may read or change the clipboard, allow it.
 
 ### Actions
 

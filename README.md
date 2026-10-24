@@ -20,7 +20,7 @@
 
 - **Locally:** `npm ci && make` with Docker and `start-cli` installed. Produces `ashigaru-desktop_x86_64.s9pk`.
 - **CI:** the **Build** workflow runs on pull requests into `main` and on demand from the Actions tab. It uploads the `.s9pk` as a workflow artifact, kept for 14 days, and is signed with a throwaway key.
-- **Releases:** pushing a tag `v<version>` (e.g. `v1.4.5_0` for `1.4.5:0`) runs the **Release** workflow. It builds the package signed with the `DEV_KEY` secret and attaches the `.s9pk` and its SHA256 to a GitHub Release.
+- **Releases:** pushing a tag `v<version>` (e.g. `v1.5.0_0` for `1.5.0:0`) runs the **Release** workflow. It builds the package signed with the `DEV_KEY` secret and attaches the `.s9pk` and its SHA256 to a GitHub Release.
 
 Both workflows are Start9's standard thin callers of the reusable workflows in `Start9Labs/start-technologies`. No Start9 registry or S3 is configured, so publishing stops at the GitHub Release.
 
@@ -28,8 +28,8 @@ Both workflows are Start9's standard thin callers of the reusable workflows in `
 
 One image, built here in three stages:
 
-1. A Debian builder downloads the upstream x86_64 tarball and verifies it. It checks the hash of `SHA256SUMS` against a value pinned in the Dockerfile and against `MESSAGE.txt`, then the tarball against `SHA256SUMS`.
-2. A digest-pinned LinuxServer Selkies webtop supplies the desktop.
+1. A Debian builder downloads the upstream x86_64 AppImage, the only Linux build upstream publishes, and verifies it. It checks the hash of `SHA256SUMS` against a value pinned in the Dockerfile and against `MESSAGE.txt`, then the AppImage against `SHA256SUMS`. Only then does it run the AppImage's `--appimage-extract` and move the jpackage image inside it to `/opt/Ashigaru`.
+2. A digest-pinned LinuxServer Selkies webtop supplies the desktop. Its catch-all Openbox rule that maximises every window is removed (see [Window sizing](#window-sizing)).
 3. A `FROM scratch` flatten collapses the result into a single layer.
 
 | Property      | Value                                                             |
@@ -39,11 +39,31 @@ One image, built here in three stages:
 | Entrypoint    | The base image's `/init`, via `sdk.useEntrypoint()` + `runAsInit` |
 | Memory        | Ashigaru's JVM heap is capped at 1 GiB by the upstream launcher   |
 
-| Subcontainer   | Purpose                        |
-| -------------- | ------------------------------ |
+| Subcontainer   | Purpose                          |
+| -------------- | -------------------------------- |
 | `ashigaru-sub` | The desktop daemon — attach here |
 
-The stack is `browser → Selkies (port 3000) → Openbox → Ashigaru`. `root/defaults/startwm.sh` copies the package-owned autostart hook over the persisted Openbox one on every launch. That hook then seeds Ashigaru's config and launches Ashigaru in a loop, so quitting the app relaunches it.
+The stack is `browser → Selkies (port 3000) → Openbox → Ashigaru`. `root/defaults/startwm.sh` copies the package-owned autostart hook over the persisted Openbox one on every launch. That hook seeds Ashigaru's config, starts `xcompmgr` and the window-fit loop, and launches Ashigaru in a loop, so quitting the app relaunches it.
+
+### Window sizing
+
+Selkies resizes the X display to the browser. Ashigaru's main window is resizable from 1.5.0, but Openbox maximising does not stick to it: while a modal dialog is open, JavaFX pins the main window's size hints to its unmaximised size, so the first-run tour blocks the maximise and every later dialog undoes it. Instead, the autostart hook checks every two seconds and resizes the main window (titled `Ashigaru Desktop <version>`) to the screen minus its frame, skipping while a dialog pins it. Dialogs keep their own size.
+
+### Fonts
+
+Ashigaru draws its UI in its own bundled typefaces and falls back to system fonts for symbols. DejaVu Sans covers all of them except the copy (`⎘` U+2398) and lock (`🔒` U+1F512) glyphs, which come from Noto Sans Symbols and Symbols2 in `fonts-noto-core`. The colour emoji font is removed: JavaFX cannot draw it, and fontconfig would otherwise choose it for the lock.
+
+### Popups
+
+JavaFX dropdowns and autocomplete lists are transparent windows with a drop shadow. Without a compositor, the transparent margin paints solid white, so the autostart hook runs `xcompmgr -n`.
+
+### Links
+
+JavaFX opens links (block explorer, exposure check) through GIO, which runs the default `x-scheme-handler/http(s)` handler. `/etc/xdg/mimeapps.list` points both at `ashigaru-link.desktop`, which runs `/usr/local/bin/ashigaru-open-link`. There is no browser in the container, and Selkies cannot open a page in the viewer's browser. The script therefore copies the link to the X clipboard, which Selkies' seamless clipboard carries to the browser, and shows it in a `yad` dialog. It refuses anything that isn't `http(s)://`. `xdg-open` itself stays disabled by `DISABLE_OPEN_TOOLS`.
+
+### Stream quality
+
+Selkies streams H.264 by default at CRF 25 with 4:2:0 chroma, which blurs Ashigaru's small coloured text. The package sets `SELKIES_VIDEO_FULLCOLOR=true` (4:4:4) and `SELKIES_VIDEO_CRF=18,5-50` (starts at 18, adjustable from the Selkies sidebar). Paint-over for static screens stays on at its defaults.
 
 **The desktop is locked down.** Passwordless sudo, terminals, the remote command channel, external open helpers and the applications sidebar are disabled through the base image's environment. File upload and download stay on for wallet exports and BIP-329 labels.
 
@@ -53,18 +73,18 @@ The stack is `browser → Selkies (port 3000) → Openbox → Ashigaru`. `root/d
 | ------ | ----------- | ---------------------------------------------- |
 | `main` | `/config`   | Webtop home, Ashigaru's data dir, `store.json` |
 
-| Path                         | Holds                                                    |
-| ---------------------------- | -------------------------------------------------------- |
-| `store.json`                 | Package state: the desktop password                      |
-| `.ashigaru/`                 | Ashigaru's home (`--dir`): wallets, config, Tor, logs     |
-| `.ashigaru/config`           | Ashigaru's mainnet config; `updateCheckConsent` seeded   |
-| `.ashigaru/wallets/`         | Wallet files                                             |
+| Path                 | Holds                                                  |
+| -------------------- | ------------------------------------------------------ |
+| `store.json`         | Package state: the desktop password                    |
+| `.ashigaru/`         | Ashigaru's home (`--dir`): wallets, config, Tor, logs  |
+| `.ashigaru/config`   | Ashigaru's mainnet config; `updateCheckConsent` seeded |
+| `.ashigaru/wallets/` | Wallet files                                           |
 
 ## File Models
 
-| File               | Format | Modelled                | Written by                          |
-| ------------------ | ------ | ----------------------- | ----------------------------------- |
-| `store.json`       | JSON   | Yes — `FileHelper.json` | Init and Set Desktop Password       |
+| File               | Format | Modelled                | Written by                                 |
+| ------------------ | ------ | ----------------------- | ------------------------------------------ |
+| `store.json`       | JSON   | Yes — `FileHelper.json` | Init and Set Desktop Password              |
 | `.ashigaru/config` | JSON   | No                      | Ashigaru; the autostart hook seeds one key |
 
 `store.json` holds only `PASSWORD`, passed to Selkies as the desktop credential. The username is fixed as `ashigaru`. It is read through `.const()`, so rotating it re-runs `main`.
@@ -77,8 +97,8 @@ None. Ashigaru connects to the Bitcoin network itself, through public Electrum s
 
 ## Network Access and Interfaces
 
-| Interface        | Id   | Type | Port | Description                                    |
-| ---------------- | ---- | ---- | ---- | ---------------------------------------------- |
+| Interface        | Id   | Type | Port | Description                                       |
+| ---------------- | ---- | ---- | ---- | ------------------------------------------------- |
 | Ashigaru Desktop | `ui` | ui   | 3000 | The Ashigaru application, streamed to the browser |
 
 Bound on the `ui-multi` MultiHost over HTTP and not masked. Selkies itself password-protects it with the credential in `store.json`. That login is what stands between anyone who can reach the address and the wallet.
@@ -122,7 +142,7 @@ The check reports whether Selkies is serving, not whether Ashigaru has finished 
 ## Limitations and Differences
 
 1. **x86_64 only.** Upstream publishes a Linux build for x86_64 only.
-2. **A desktop application in a browser.** Latency, clipboard and window behavior are Selkies', not Ashigaru's. The main window is fixed at 1100 × 800.
+2. **A desktop application in a browser.** Latency, clipboard and window behavior are Selkies', not Ashigaru's. Links cannot open in the viewer's browser directly; they are copied and shown instead.
 3. **The in-app updater is off by default.** Turning it on downloads releases but cannot install them into the image.
 4. **No StartOS dependency wiring yet.** Using a node on the same server means typing its Electrum address into Ashigaru by hand.
 
@@ -158,6 +178,8 @@ startos_managed_env_vars:
   - SELKIES_UI_SIDEBAR_SHOW_APPS
   - SELKIES_UI_SIDEBAR_SHOW_FILES
   - SELKIES_FILE_TRANSFERS
+  - SELKIES_VIDEO_FULLCOLOR
+  - SELKIES_VIDEO_CRF
 dependencies: []
 interfaces:
   ui: { type: ui, port: 3000 }
