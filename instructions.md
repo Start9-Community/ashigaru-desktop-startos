@@ -13,8 +13,6 @@
 
 ## Getting set up
 
-This service needs an up-to-date StartOS. If the install fails with a "Deserialization Error … @bind", update StartOS first, then install again.
-
 1. After install, StartOS posts a critical task **Set your desktop password**. Run it and save the generated `ashigaru` username and password in a password manager.
 2. Start the service and open the **Ashigaru Desktop** interface. Sign in with the username and password from step 1 when your browser asks.
 3. Ashigaru's welcome tour appears. Walk through it, then create or restore a wallet with **New / Restore**.
@@ -24,7 +22,7 @@ This service needs an up-to-date StartOS. If the install fails with a "Deseriali
 
 ### Ashigaru Desktop interface
 
-This is the same Ashigaru you would run on a computer, displayed in your browser. The window fills your browser tab and follows it when you resize. If text looks too small on a high-resolution screen, pick a larger scaling in the Selkies sidebar on the left. Leaving the browser tab, or closing it, does not stop Ashigaru: mixing carries on on the server. If you quit Ashigaru from its own menu, it starts again by itself after a couple of seconds.
+This is the same Ashigaru you would run on a computer, displayed in your browser. The window fills your browser tab and follows it when you resize. If text looks too small on a high-resolution screen, pick a larger scaling in the Selkies sidebar on the left. Leaving the browser tab, or closing it, does not stop Ashigaru: mixing carries on on the server. Whenever the service restarts — a server reboot, an update, or a new desktop password — open your wallet again to resume mixing. If you quit Ashigaru from its own menu, it starts again by itself after a couple of seconds.
 
 ### Links
 
@@ -32,7 +30,7 @@ Ashigaru can't open a website in your browser from the server. When you click a 
 
 ### Actions
 
-- **Set Desktop Password** — generates a new random password for the desktop sign-in and shows it. Run it if you lose the password or want to change it. Once a password exists, it asks you to confirm first, and Ashigaru restarts.
+- **Set Desktop Password** — generates a new random password for the desktop sign-in and shows it. Run it if you lose the password or want to change it. Ashigaru restarts, so open your wallet again afterwards.
 
 ### Updates
 

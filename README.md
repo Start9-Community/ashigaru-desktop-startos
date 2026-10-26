@@ -9,10 +9,10 @@
 > the upstream documentation is accurate and fully applicable — see the
 > Documentation section of `instructions.md` for links.
 
-[Ashigaru Desktop](https://github.com/linkinparkrulz/ashigaru-desktop) is a Bitcoin wallet and Whirlpool coinjoin client, forked from Sparrow. It is a JavaFX **desktop** application, so this package runs it inside a browser-accessible Linux desktop rather than serving a web app.
+[Ashigaru Desktop](https://github.com/linkinparkrulz/ashigaru-desktop) is a Bitcoin wallet and Whirlpool coinjoin client, forked from Sparrow and maintained independently as a companion to Ashigaru Terminal and Ashigaru Mobile. It is a JavaFX **desktop** application, so this package runs it inside a browser-accessible Linux desktop rather than serving a web app.
 
 - **Upstream repo:** <https://github.com/linkinparkrulz/ashigaru-desktop>
-- **Wrapper repo:** <https://github.com/linkinparkrulz/ashigaru-desktop-startos>
+- **Wrapper repo:** <https://github.com/Start9-Community/ashigaru-desktop-startos>
 
 ---
 
@@ -123,7 +123,7 @@ Ashigaru's outbound connections, including Whirlpool and Tor, are made by Ashiga
 
 ## Installation and First-Run Flow
 
-Install seeds an empty `store.json` and raises a `critical` task to set the desktop password. There is no default credential. `main` throws if no password is stored, so the desktop cannot start without one.
+Install seeds an empty `store.json`, so init raises a `critical` task to set the desktop password. There is no default credential. `main` throws if no password is stored, so the desktop cannot start without one.
 
 ## Actions
 
@@ -131,10 +131,10 @@ One action, for the desktop login. Ashigaru's own settings live in its UI.
 
 ### Set Desktop Password
 
-Generates a new random password for the desktop login and shows it with the username. Available at any status. When a password already exists, it asks for confirmation first.
+Run it to set the first password, or to replace a lost or exposed one.
 
 - **What it changes:** `PASSWORD` in `store.json`.
-- **Cost:** the write re-runs `main`, so the desktop and Ashigaru restart. An active mix is interrupted and resumes when Ashigaru reopens the wallet.
+- **Cost:** the write re-runs `main`, so the desktop and Ashigaru restart. Ashigaru does not reopen wallets on launch, so an active mix stops until the user opens the wallet again.
 - **Repeat safety:** safe to run again; each run makes a new password and the old one stops working.
 - **Outputs:** the username (`ashigaru`) and the new password.
 
@@ -142,11 +142,11 @@ Generates a new random password for the desktop login and shows it with the user
 
 One task, raised so the desktop is never reachable without a password.
 
-| Task                      | Severity   | Raised when | Cleared when              |
-| ------------------------- | ---------- | ----------- | ------------------------- |
-| Set your desktop password | `critical` | At install  | Set Desktop Password runs |
+| Task                      | Severity   | Raised when                    | Cleared when              |
+| ------------------------- | ---------- | ------------------------------ | ------------------------- |
+| Set your desktop password | `critical` | `store.json` holds no password | Set Desktop Password runs |
 
-Raised on install only, so a restore does not re-prompt for a password that came back with the backup.
+Init checks on every container start, so the task returns only if `store.json` loses its password. A restore brings the password back with the backup and raises nothing.
 
 ## Health Checks
 
@@ -167,7 +167,8 @@ The check reports whether Selkies is serving, not whether Ashigaru has finished 
 1. **x86_64 only.** Upstream publishes a Linux build for x86_64 only.
 2. **A desktop application in a browser.** Latency, clipboard and window behavior are Selkies', not Ashigaru's. Links cannot open in the viewer's browser directly; they are copied and shown instead.
 3. **The in-app updater is off by default.** Turning it on downloads releases but cannot install them into the image.
-4. **No StartOS dependency wiring yet.** Using a node on the same server means typing its Electrum address into Ashigaru by hand.
+4. **Mixing stops on every restart.** Ashigaru does not reopen wallets when it launches, so after a server reboot, a service update or a password change, mixing resumes only once the user opens the wallet again.
+5. **No StartOS dependency wiring yet.** Using a node on the same server means typing its Electrum address into Ashigaru by hand.
 
 ---
 
