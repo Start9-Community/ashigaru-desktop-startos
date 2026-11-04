@@ -19,12 +19,8 @@ This package wraps the Ashigaru Desktop Linux release from `linkinparkrulz/ashig
   2. Verify the signature as the upstream README describes (**Tools → Verifier** in Ashigaru, or paymentcode.io/lab with the release signing payment code). The recovered signer must be `1K8CDoBYWBuaeAhejLAk5hiACAgbbPnDCJ`.
   3. Run `sha256sum SHA256SUMS` and confirm it matches the `SHA256(SHA256SUMS):` line in `MESSAGE.txt`.
   4. Set `ARG ASHIGARU_VERSION` and `ARG ASHIGARU_SUMS_SHA256` in `Dockerfile` to the new version and that hash.
-  5. Bump `startos/versions/current.ts` to `<version>:0` with its release notes, following the packaging guide's `versions.md`.
-  6. Open a pull request against `main`. Merging it builds and publishes the release.
 
   The build re-checks the hash against `MESSAGE.txt` and the AppImage against `SHA256SUMS`, so a skipped step fails the build rather than shipping an unverified binary. The build downloads from the public release URL, so it fails while the upstream release is still a draft.
-
-- **start-sdk**: pin an exact version (`npm install @start9labs/start-sdk@<version> --save-exact`), then run `npm install` again until `package-lock.json` stops changing. A bump can raise the minimum StartOS. After `make`, check `manifest.osVersion` (`node -e "console.log(require('./javascript/index.js').manifest.osVersion)"`), and if it rose, say so in the version's release notes: older StartOS doesn't enforce it on a sideload.
 
 - **Selkies base image**: `Dockerfile` pins `ghcr.io/linuxserver/baseimage-selkies:debiantrixie` by release tag and digest, the same pin Start9's Bisq package uses. Verify the current tag with:
 
@@ -32,4 +28,4 @@ This package wraps the Ashigaru Desktop Linux release from `linkinparkrulz/ashig
   docker buildx imagetools inspect ghcr.io/linuxserver/baseimage-selkies:debiantrixie
   ```
 
-  When updating the base, pick the newest stable Debian Trixie release (skip `dev` tags) and replace both the tag and digest in the `FROM` line. Keep the flattened image's `ENV` block in sync with the base image's runtime environment, keeping `START_DOCKER=false`. Increment the StartOS downstream revision while keeping the Ashigaru version unchanged.
+  When updating the base, pick the newest stable Debian Trixie release (skip `dev` tags) and replace both the tag and digest in the `FROM` line. Keep the flattened image's `ENV` block in sync with the base image's runtime environment, keeping `START_DOCKER=false`.
