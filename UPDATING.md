@@ -12,6 +12,16 @@ This package wraps the Ashigaru Desktop Linux release from `linkinparkrulz/ashig
 
   Pinned as `ASHIGARU_VERSION` in `Dockerfile` (the tag is `v<version>`; the pin omits the `v`).
 
+## Automated bump
+
+The **Upstream watch** workflow (`.github/workflows/upstream-watch.yml`) runs daily and on demand. When the latest published upstream release is newer than `ASHIGARU_VERSION`, `.github/scripts/upstream_bump.py` verifies the chain below before writing anything, then opens a pull request from `upstream/v<version>`. It never merges, tags or publishes.
+
+- `RELEASE-BIP47-SIGNATURE.txt` carries `MESSAGE.txt` exactly and recovers to `1K8CDoBYWBuaeAhejLAk5hiACAgbbPnDCJ`.
+- `MESSAGE.txt` names the upstream repository and the release's version and tag.
+- `SHA256(SHA256SUMS)` matches the downloaded `SHA256SUMS`, which lists the AppImage.
+
+The pull request sets `ASHIGARU_VERSION`, `ASHIGARU_SUMS_SHA256` and the version in `startos/versions/current.ts`. Its release notes are a placeholder: rewrite them from the upstream notes quoted in the pull request before merging. It refuses to bump while `current.ts` carries a migration. A pull request opened with the default token doesn't start **Build**: save a fine-grained token for this repository (Contents and Pull requests: read and write) as the `UPSTREAM_BOT_TOKEN` secret, or run Build on the branch by hand.
+
 ## Applying the bump
 
 - **Ashigaru Desktop**:
