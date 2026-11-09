@@ -1,11 +1,11 @@
 # Stage 1: fetch and verify the Ashigaru Linux release
 FROM debian:trixie-slim AS ashigaru-fetch
 
-ARG ASHIGARU_VERSION=1.5.0
+ARG ASHIGARU_VERSION=1.5.1
 # SHA256 of the release's SHA256SUMS file, as attested in its MESSAGE.txt and
 # covered by RELEASE-BIP47-SIGNATURE.txt. Pinning it here means a re-uploaded
 # SHA256SUMS or AppImage fails the build instead of being trusted.
-ARG ASHIGARU_SUMS_SHA256=d3a49ac837fe0cd2265070e2fcef35810053eeb4012ea800f6303df8e3160578
+ARG ASHIGARU_SUMS_SHA256=d29150ece65bf878a0e4ae5b08d66342d5ea16c76b672b165000f79e2e13f225
 
 RUN apt-get update && \
     apt-get install -y --no-install-recommends ca-certificates curl && \
