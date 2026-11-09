@@ -20,7 +20,9 @@ The **Upstream watch** workflow (`.github/workflows/upstream-watch.yml`) runs da
 - `MESSAGE.txt` names the upstream repository and the release's version and tag.
 - `SHA256(SHA256SUMS)` matches the downloaded `SHA256SUMS`, which lists the AppImage.
 
-The pull request sets `ASHIGARU_VERSION`, `ASHIGARU_SUMS_SHA256` and the version in `startos/versions/current.ts`. Its release notes are a placeholder: rewrite them from the upstream notes quoted in the pull request before merging. It refuses to bump while `current.ts` carries a migration. A pull request opened with the default token doesn't start **Build**: save a fine-grained token for this repository (Contents and Pull requests: read and write) as the `UPSTREAM_BOT_TOKEN` secret, or run Build on the branch by hand.
+The pull request sets `ASHIGARU_VERSION`, `ASHIGARU_SUMS_SHA256` and the version in `startos/versions/current.ts`. Its release notes are a placeholder: rewrite them from the upstream notes quoted in the pull request before merging. It refuses to bump while `current.ts` carries a migration. It skips a version that already has an open pull request with its title, from any branch or fork.
+
+The workflow needs the `UPSTREAM_BOT_TOKEN` secret, a fine-grained token for this repository with Contents and Pull requests set to read and write, and fails at its first step without it. The default token can't open pull requests here, and a pull request it opened wouldn't start **Build**.
 
 ## Applying the bump
 

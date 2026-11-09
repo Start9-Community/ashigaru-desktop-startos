@@ -7,10 +7,11 @@ name: Upstream watch
 # the build on StartOS and merges, which publishes to Community Beta. See
 # .github/scripts/upstream_bump.py.
 #
-# Pull requests opened with the default GITHUB_TOKEN do not start other
-# workflows, so Build only runs on its own when the UPSTREAM_BOT_TOKEN secret
-# holds a fine-grained token for this repository (Contents and Pull requests:
-# read and write). Without it, run Build on the branch by hand.
+# Requires the UPSTREAM_BOT_TOKEN secret: a fine-grained token for this
+# repository with Contents and Pull requests set to read and write. It pushes
+# the branch and opens the pull request; the default GITHUB_TOKEN can't open
+# pull requests here, and a pull request it opened wouldn't start Build. The
+# token is passed only to the steps that write, never stored in .git/config.
 
 on:
   schedule:
@@ -27,13 +28,21 @@ jobs:
   bump:
     runs-on: ubuntu-latest
     permissions:
-      contents: write
-      pull-requests: write
+      contents: read
     steps:
+      - name: Require the bot token
+        env:
+          BOT_TOKEN: ${{ secrets.UPSTREAM_BOT_TOKEN }}
+        run: |
+          if [ -z "${BOT_TOKEN}" ]; then
+            echo "::error::UPSTREAM_BOT_TOKEN is not set. See UPDATING.md (Automated bump)."
+            exit 1
+          fi
+
       - name: Checkout
         uses: actions/checkout@v6
         with:
-          token: ${{ secrets.UPSTREAM_BOT_TOKEN || github.token }}
+          persist-credentials: false
 
       - name: Set up Python
         uses: actions/setup-python@v6
@@ -49,46 +58,53 @@ jobs:
           GITHUB_TOKEN: ${{ github.token }}
         run: python -I .github/scripts/upstream_bump.py --repo . --body "$RUNNER_TEMP/pr-body.md"
 
-      - name: Skip if a pull request branch already exists
-        id: branch
+      # Matches open pull requests from any branch or fork, not just this
+      # repository's branches.
+      - name: Skip if a pull request for this version is already open
+        id: existing
         if: steps.bump.outputs.updated == 'true'
         env:
+          GH_TOKEN: ${{ secrets.UPSTREAM_BOT_TOKEN }}
           VERSION: ${{ steps.bump.outputs.version }}
         run: |
-          branch="upstream/v${VERSION}"
-          echo "name=${branch}" >> "$GITHUB_OUTPUT"
-          if git ls-remote --exit-code --heads origin "${branch}" > /dev/null; then
-            echo "Branch ${branch} already exists; leaving it alone."
-            echo "exists=true" >> "$GITHUB_OUTPUT"
+          title="Update Ashigaru Desktop to ${VERSION}"
+          open=$(gh pr list --repo "${GITHUB_REPOSITORY}" --state open \
+            --search "\"${title}\" in:title" --json title \
+            --jq "[.[] | select(.title == \"${title}\")] | length")
+          if [ "${open}" != "0" ]; then
+            echo "An open pull request is already titled '${title}'; leaving it alone."
+            echo "open=true" >> "$GITHUB_OUTPUT"
           else
-            echo "exists=false" >> "$GITHUB_OUTPUT"
+            echo "open=false" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Set up Node.js
-        if: steps.branch.outputs.exists == 'false'
+        if: steps.existing.outputs.open == 'false'
         uses: actions/setup-node@v6
         with:
           node-version: '22'
 
       - name: Format the edited version file
-        if: steps.branch.outputs.exists == 'false'
+        if: steps.existing.outputs.open == 'false'
         run: |
-          npm ci
+          npm ci --ignore-scripts
           npx prettier --config node_modules/@start9labs/start-sdk/prettier.config.json --write startos
 
+      # The branch is the bot's own, so a leftover from a run that pushed but
+      # failed to open its pull request is overwritten rather than skipped.
       - name: Open the pull request
-        if: steps.branch.outputs.exists == 'false'
+        if: steps.existing.outputs.open == 'false'
         env:
-          GH_TOKEN: ${{ secrets.UPSTREAM_BOT_TOKEN || github.token }}
-          BRANCH: ${{ steps.branch.outputs.name }}
+          GH_TOKEN: ${{ secrets.UPSTREAM_BOT_TOKEN }}
           VERSION: ${{ steps.bump.outputs.version }}
         run: |
+          branch="upstream/v${VERSION}"
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git checkout -b "${BRANCH}"
+          git checkout -b "${branch}"
           git add Dockerfile startos/versions/current.ts
           git commit -m "Update Ashigaru Desktop to ${VERSION}"
-          git push origin "${BRANCH}"
-          gh pr create --base main --head "${BRANCH}" \
+          git push --force "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" "HEAD:refs/heads/${branch}"
+          gh pr create --repo "${GITHUB_REPOSITORY}" --base main --head "${branch}" \
             --title "Update Ashigaru Desktop to ${VERSION}" \
             --body-file "$RUNNER_TEMP/pr-body.md"
