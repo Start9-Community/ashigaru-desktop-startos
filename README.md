@@ -12,6 +12,9 @@
 [Ashigaru Desktop](https://github.com/linkinparkrulz/ashigaru-desktop) is a Bitcoin wallet and Whirlpool coinjoin client, forked from Sparrow and maintained independently as a companion to Ashigaru Terminal and Ashigaru Mobile. It is a JavaFX **desktop** application, so this package runs it inside a browser-accessible Linux desktop rather than serving a web app.
 
 - **Upstream repo:** <https://github.com/linkinparkrulz/ashigaru-desktop>
+
+**This is an unofficial build from an individual account.** The application is the prebuilt AppImage released on the GitHub account `linkinparkrulz`. It is not distributed by the Ashigaru project (<https://ashigaru.rs>), which publishes Ashigaru Terminal and Ashigaru Mobile. The build verifies the release's BIP47 signature against that account's own release-signing payment code (PayNym `+linkinparkrulz`, notification address `1K8CDoBYWBuaeAhejLAk5hiACAgbbPnDCJ`) and the AppImage against the signed checksums. Nothing here checks that the AppImage was built from the published source, and no one but that maintainer vouches for it.
+
 - **Wrapper repo:** <https://github.com/Start9-Community/ashigaru-desktop-startos>
 
 ---
@@ -37,7 +40,7 @@
 
 One image, built here in three stages:
 
-1. A Debian builder downloads the upstream x86_64 AppImage, the only Linux build upstream publishes, and verifies it. It checks the hash of `SHA256SUMS` against a value pinned in the Dockerfile and against `MESSAGE.txt`, then the AppImage against `SHA256SUMS`. Only then does it run the AppImage's `--appimage-extract` and move the jpackage image inside it to `/opt/Ashigaru`.
+1. A Debian builder downloads the upstream x86_64 AppImage, the only Linux build upstream publishes, and verifies it. It first checks `RELEASE-BIP47-SIGNATURE.txt`: the signed text must be exactly `MESSAGE.txt`, and the signature must recover to the pinned `ASHIGARU_SIGNER` address (Bitcoin signed-message verification, done by a short script over Debian's `python3-ecdsa`). Then `MESSAGE.txt` must name the pinned tag, the hash of `SHA256SUMS` must match both the value pinned in the Dockerfile and the one `MESSAGE.txt` attests, and the AppImage must match `SHA256SUMS`. Only then does it run the AppImage's `--appimage-extract` and move the jpackage image inside it to `/opt/Ashigaru`.
 2. A digest-pinned LinuxServer Selkies webtop supplies the desktop. Its catch-all Openbox rule that maximises every window is removed (see [Window sizing](#window-sizing)).
 3. A `FROM scratch` flatten collapses the result into a single layer.
 
@@ -165,10 +168,11 @@ The check reports whether Selkies is serving, not whether Ashigaru has finished 
 ## Limitations and Differences
 
 1. **x86_64 only.** Upstream publishes a Linux build for x86_64 only.
-2. **A desktop application in a browser.** Latency, clipboard and window behavior are Selkies', not Ashigaru's. Links cannot open in the viewer's browser directly; they are copied and shown instead.
-3. **The in-app updater is off by default.** Turning it on downloads releases but cannot install them into the image.
-4. **Mixing stops on every restart.** Ashigaru does not reopen wallets when it launches, so after a server reboot, a service update or a password change, mixing resumes only once the user opens the wallet again.
-5. **No StartOS dependency wiring yet.** Using a node on the same server means typing its Electrum address into Ashigaru by hand.
+2. **Unofficial, prebuilt, single-maintainer.** The binary comes from the `linkinparkrulz` GitHub account, not the Ashigaru project. Its signature and checksums are verified; its build from source is not.
+3. **A desktop application in a browser.** Latency, clipboard and window behavior are Selkies', not Ashigaru's. Links cannot open in the viewer's browser directly; they are copied and shown instead.
+4. **The in-app updater is off by default.** Turning it on downloads releases but cannot install them into the image.
+5. **Mixing stops on every restart.** Ashigaru does not reopen wallets when it launches, so after a server reboot, a service update or a password change, mixing resumes only once the user opens the wallet again.
+6. **No StartOS dependency wiring yet.** Using a node on the same server means typing its Electrum address into Ashigaru by hand.
 
 ---
 

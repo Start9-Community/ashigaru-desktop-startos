@@ -16,11 +16,11 @@ This package wraps the Ashigaru Desktop Linux release from `linkinparkrulz/ashig
 
 - **Ashigaru Desktop**:
   1. Download the new release's `SHA256SUMS`, `MESSAGE.txt` and `RELEASE-BIP47-SIGNATURE.txt`.
-  2. Verify the signature as the upstream README describes (**Tools → Verifier** in Ashigaru, or paymentcode.io/lab with the release signing payment code). The recovered signer must be `1K8CDoBYWBuaeAhejLAk5hiACAgbbPnDCJ`.
+  2. Confirm `RELEASE-BIP47-SIGNATURE.txt` names `Address: 1K8CDoBYWBuaeAhejLAk5hiACAgbbPnDCJ`, the `ASHIGARU_SIGNER` pinned in `Dockerfile`. If it names any other address, stop: the signing key has changed, and a new one must be confirmed out of band before it is pinned.
   3. Run `sha256sum SHA256SUMS` and confirm it matches the `SHA256(SHA256SUMS):` line in `MESSAGE.txt`.
   4. Set `ARG ASHIGARU_VERSION` and `ARG ASHIGARU_SUMS_SHA256` in `Dockerfile` to the new version and that hash.
 
-  The build re-checks the hash against `MESSAGE.txt` and the AppImage against `SHA256SUMS`, so a skipped step fails the build rather than shipping an unverified binary. The build downloads from the public release URL, so it fails while the upstream release is still a draft.
+  The build verifies the signature against `ASHIGARU_SIGNER`, requires `MESSAGE.txt` to name the pinned tag, re-checks the hash against `MESSAGE.txt`, and checks the AppImage against `SHA256SUMS`, so a skipped step fails the build rather than shipping an unverified binary. The build downloads from the public release URL, so it fails while the upstream release is still a draft.
 
 - **Selkies base image**: `Dockerfile` pins `ghcr.io/linuxserver/baseimage-selkies:debiantrixie` by release tag and digest, the same pin Start9's Bisq package uses. Verify the current tag with:
 

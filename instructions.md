@@ -1,5 +1,9 @@
 # Ashigaru Desktop
 
+> **This is an unofficial build.** The Ashigaru Desktop installed here is the one published by the individual GitHub account [linkinparkrulz](https://github.com/linkinparkrulz/ashigaru-desktop). It is not made or distributed by the Ashigaru project ([ashigaru.rs](https://ashigaru.rs)), which publishes Ashigaru Terminal and Ashigaru Mobile.
+>
+> **What is checked:** before installing it, the package confirms that the release is signed by that account's release-signing key (PayNym `+linkinparkrulz`, notification address `1K8CDoBYWBuaeAhejLAk5hiACAgbbPnDCJ`), and that the downloaded app matches the release's signed checksums. **What is not:** that the app was built from its published source code, or that anyone other than that maintainer has reviewed it. The signature shows only that the release came from the holder of that key. Keep only funds in it that you are comfortable trusting to that maintainer's build.
+
 ## Documentation
 
 - [Ashigaru Desktop README](https://github.com/linkinparkrulz/ashigaru-desktop/blob/main/README.md) — features, release verification, and upstream usage notes.

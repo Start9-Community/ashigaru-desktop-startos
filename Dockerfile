@@ -1,3 +1,4 @@
+# syntax=docker/dockerfile:1
 # Stage 1: fetch and verify the Ashigaru Linux release
 FROM debian:trixie-slim AS ashigaru-fetch
 
@@ -6,20 +7,76 @@ ARG ASHIGARU_VERSION=1.5.1
 # covered by RELEASE-BIP47-SIGNATURE.txt. Pinning it here means a re-uploaded
 # SHA256SUMS or AppImage fails the build instead of being trusted.
 ARG ASHIGARU_SUMS_SHA256=d29150ece65bf878a0e4ae5b08d66342d5ea16c76b672b165000f79e2e13f225
+# Notification address of linkinparkrulz's release-signing BIP47 payment code
+# PM8TJM51x2mDd85CzEgVc2y7vdyB3eBj93JVjVtCt6PZtmfzhFzYPMXYBXh28zthWhVKGjVQZPT1MKxGxEtfenLYEkuc5GhoWtMzQCF8c8mrckYFM7r1
+ARG ASHIGARU_SIGNER=1K8CDoBYWBuaeAhejLAk5hiACAgbbPnDCJ
 
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends ca-certificates curl && \
+    apt-get install -y --no-install-recommends ca-certificates curl python3-ecdsa && \
     rm -rf /var/lib/apt/lists/*
+
+# Checks a Bitcoin signed-message block against MESSAGE.txt and requires its
+# recovered signer to be the pinned P2PKH address.
+COPY <<'VERIFY' /usr/local/bin/verify-signed-message
+import base64, hashlib, sys
+from ecdsa import SECP256k1, VerifyingKey
+from ecdsa.util import sigdecode_string
+
+address, block_path, message_path = sys.argv[1:4]
+head, sep, rest = open(block_path).read().partition(
+    '\n-----BEGIN BITCOIN SIGNATURE-----\n')
+begin = '-----BEGIN BITCOIN SIGNED MESSAGE-----\n'
+if not sep or not head.startswith(begin):
+    sys.exit('malformed signature block')
+message = head[len(begin):]
+fields = [l for l in rest.split('\n') if l and not l.startswith('Version:')]
+if fields[0] != f'Address: {address}' or fields[-1] != '-----END BITCOIN SIGNATURE-----':
+    sys.exit(f'signature block names {fields[0]!r}, expected {address}')
+if open(message_path).read() != message + '\n':
+    sys.exit('signed message differs from MESSAGE.txt')
+sig = base64.b64decode(fields[1], validate=True)
+if len(sig) != 65 or not 27 <= sig[0] <= 34:
+    sys.exit('unsupported signature encoding')
+
+def sha256d(b):
+    return hashlib.sha256(hashlib.sha256(b).digest()).digest()
+
+def p2pkh(pubkey):
+    payload = b'\0' + hashlib.new('ripemd160', hashlib.sha256(pubkey).digest()).digest()
+    n = int.from_bytes(payload + sha256d(payload)[:4], 'big')
+    alphabet = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz'
+    out = ''
+    while n:
+        n, r = divmod(n, 58)
+        out = alphabet[r] + out
+    return '1' + out
+
+magic, msg = b'Bitcoin Signed Message:\n', message.encode()
+if len(msg) >= 0xfd:
+    sys.exit('message too long')
+digest = sha256d(bytes([len(magic)]) + magic + bytes([len(msg)]) + msg)
+encoding = 'compressed' if sig[0] >= 31 else 'uncompressed'
+for key in VerifyingKey.from_public_key_recovery_with_digest(
+        sig[1:], digest, SECP256k1, sigdecode=sigdecode_string):
+    if p2pkh(key.to_string(encoding)) == address:
+        key.verify_digest(sig[1:], digest, sigdecode=sigdecode_string)
+        print(f'Good signature from {address}')
+        sys.exit(0)
+sys.exit(f'signature does not recover to {address}')
+VERIFY
 
 WORKDIR /tmp/ashigaru
 # Linux releases ship only as an AppImage. Its runtime unpacks itself without
-# FUSE, and runs only once the checksums have passed. usr/ holds the jpackage
+# FUSE, and runs only once the signature and checksums have passed. usr/ holds the jpackage
 # image, so the launcher lands at /opt/Ashigaru/bin/Ashigaru.
 RUN base="https://github.com/linkinparkrulz/ashigaru-desktop/releases/download/v${ASHIGARU_VERSION}" && \
     appimage="Ashigaru-${ASHIGARU_VERSION}-x86_64.AppImage" && \
     curl -fsSLO "${base}/SHA256SUMS" && \
     curl -fsSLO "${base}/MESSAGE.txt" && \
+    curl -fsSLO "${base}/RELEASE-BIP47-SIGNATURE.txt" && \
     curl -fsSLO "${base}/${appimage}" && \
+    python3 -I /usr/local/bin/verify-signed-message "${ASHIGARU_SIGNER}" RELEASE-BIP47-SIGNATURE.txt MESSAGE.txt && \
+    grep -qx "Tag: v${ASHIGARU_VERSION}" MESSAGE.txt && \
     echo "${ASHIGARU_SUMS_SHA256}  SHA256SUMS" | sha256sum -c - && \
     grep -qx "SHA256(SHA256SUMS): ${ASHIGARU_SUMS_SHA256}" MESSAGE.txt && \
     grep " ${appimage}\$" SHA256SUMS | sha256sum -c - && \
